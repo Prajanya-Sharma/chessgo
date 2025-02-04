@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,8 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+
+	"chess-engine/handlers" 
 )
 
 const boardSize = 8
@@ -59,17 +62,27 @@ func main() {
 			square.SetMinSize(fyne.NewSize(75, 75))
 
 			blockHasPiece := parsedBoard[row][col]
+			cell := container.NewStack(square)
+
 			if blockHasPiece != 0 {
 				imagePath := filepath.Join(pieceDir, mpPieceToImage[blockHasPiece])
 				pieceImage := canvas.NewImageFromFile(imagePath)
 				pieceImage.FillMode = canvas.ImageFillContain
 				pieceImage.Resize(fyne.NewSize(75, 75))
 
-				cell := container.NewStack(square, pieceImage)
-				board.Add(cell)
-			} else {
-				board.Add(square)
+				rowCopy, colCopy := row, col
+
+				tapButton := widget.NewButton(" ", func() {
+					fmt.Println("Piece clicked at:", rowCopy, colCopy)
+					handlers.HandlePieceClick(parsedBoard, blockHasPiece, rowCopy, colCopy) // Call the handler
+				})
+				tapButton.Importance = widget.LowImportance 
+				tapButton.Resize(fyne.NewSize(5, 5))     
+
+				cell = container.NewStack(square, pieceImage, tapButton)
 			}
+
+			board.Add(cell)
 		}
 	}
 
