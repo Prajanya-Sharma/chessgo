@@ -42,7 +42,7 @@ func parseFEN(fen string) [8][8]rune {
 				colIdx += int(char - '0')
 			} else {
 				board[rowIdx][colIdx] = char
-				colIdx++
+				colIdx++ 
 			}
 		}
 	}
@@ -51,7 +51,10 @@ func parseFEN(fen string) [8][8]rune {
 
 func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 	rowStep, colStep := 0, 0
-
+	piece := parsedBoard[fromRow][fromCol]
+	if piece == 'N' || piece == 'n' {
+		return true
+	}
 	if fromRow < toRow {
 		rowStep = 1
 	} else if fromRow > toRow {
@@ -63,7 +66,7 @@ func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 	} else if fromCol > toCol {
 		colStep = -1
 	}
-
+    
 	r, c := fromRow+rowStep, fromCol+colStep
 	for r != toRow || c != toCol {
 		if parsedBoard[r][c] != 0 {
