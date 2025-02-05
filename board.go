@@ -50,6 +50,7 @@ func parseFEN(fen string) [8][8]rune {
 
 func movePiece(fromRow, fromCol, toRow, toCol int) {
 	if fromRow == toRow && fromCol == toCol {
+		pieceSelected = false
 		fmt.Println("Invalid move: Same position")
 		return
 	}
