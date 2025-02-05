@@ -30,6 +30,7 @@ var mpPieceToImage = map[rune]string{
 var selectedRow, selectedCol int
 var pieceSelected bool
 var parsedBoard [8][8]rune
+var whiteTurn = true
 
 func parseFEN(fen string) [8][8]rune {
 	var board [8][8]rune
@@ -77,13 +78,17 @@ func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 
 func movePiece(fromRow, fromCol, toRow, toCol int) {
 	if fromRow == toRow && fromCol == toCol {
-		
-		
 		pieceSelected = false
 		return
 	}
 
 	piece := parsedBoard[fromRow][fromCol]
+	isWhitePiece := piece >= 'A' && piece <= 'Z'
+
+	if (whiteTurn && !isWhitePiece) || (!whiteTurn && isWhitePiece) {
+		fmt.Println("Not your turn!")
+		return
+	}
 
 	if !isPathClear(fromRow, fromCol, toRow, toCol) {
 		fmt.Println("Path is blocked for piece:", string(piece))
@@ -99,6 +104,7 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	parsedBoard[fromRow][fromCol] = 0
 	fmt.Printf("Moved %c from (%d, %d) to (%d, %d)\n", piece, fromRow, fromCol, toRow, toCol)
 
+	whiteTurn = !whiteTurn
 	pieceSelected = false
 }
 
@@ -127,12 +133,10 @@ func generateChessBoard() *fyne.Container {
 
 				tapButton := widget.NewButton(" ", func() {
 					if !pieceSelected {
-						// First click: Select piece
 						selectedRow, selectedCol = rowCopy, colCopy
 						pieceSelected = true
 						fmt.Println("Piece selected at:", selectedRow, selectedCol)
 					} else {
-						// Second click: Move piece
 						movePiece(selectedRow, selectedCol, rowCopy, colCopy)
 					}
 				})
