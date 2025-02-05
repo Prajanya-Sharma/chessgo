@@ -48,14 +48,47 @@ func parseFEN(fen string) [8][8]rune {
 	return board
 }
 
+func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
+	rowStep, colStep := 0, 0
+
+	if fromRow < toRow {
+		rowStep = 1
+	} else if fromRow > toRow {
+		rowStep = -1
+	}
+
+	if fromCol < toCol {
+		colStep = 1
+	} else if fromCol > toCol {
+		colStep = -1
+	}
+
+	r, c := fromRow+rowStep, fromCol+colStep
+	for r != toRow || c != toCol {
+		if parsedBoard[r][c] != 0 {
+			return false // Path is blocked
+		}
+		r += rowStep
+		c += colStep
+	}
+
+	return true // Path is clear
+}
+
 func movePiece(fromRow, fromCol, toRow, toCol int) {
 	if fromRow == toRow && fromCol == toCol {
+		
+		
 		pieceSelected = false
-		fmt.Println("Invalid move: Same position")
 		return
 	}
 
 	piece := parsedBoard[fromRow][fromCol]
+
+	if !isPathClear(fromRow, fromCol, toRow, toCol) {
+		fmt.Println("Path is blocked for piece:", string(piece))
+		return
+	}
 
 	if !handlers.IsValidMove(parsedBoard, piece, fromRow, fromCol, toRow, toCol) {
 		fmt.Println("Invalid move for piece:", string(piece))
@@ -63,7 +96,7 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	}
 
 	parsedBoard[toRow][toCol] = piece
-	parsedBoard[fromRow][fromCol] = 0 
+	parsedBoard[fromRow][fromCol] = 0
 	fmt.Printf("Moved %c from (%d, %d) to (%d, %d)\n", piece, fromRow, fromCol, toRow, toCol)
 
 	pieceSelected = false
