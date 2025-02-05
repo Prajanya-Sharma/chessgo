@@ -20,32 +20,32 @@ func IsValidMove(board [8][8]rune, piece rune, fromRow, fromCol, toRow, toCol in
 	switch piece {
 	case 'P':
 		if fromCol == toCol && (toRow == fromRow-1 || (fromRow == 6 && toRow == 4)) { 
-			return true // Normal move or double-step from starting position
+			return true 
 		}
 	case 'p': 
 		if fromCol == toCol && (toRow == fromRow+1 || (fromRow == 1 && toRow == 3)) { 
-			return true // Normal move or double-step from starting position
+			return true 
 		}
 	case 'R', 'r':
 		if fromRow == toRow || fromCol == toCol { 
-			return true // Can move in straight lines
+			return true
 		}
 	case 'N', 'n': 
 		rowDiff, colDiff := abs(fromRow-toRow), abs(fromCol-toCol)
 		if (rowDiff == 2 && colDiff == 1) || (rowDiff == 1 && colDiff == 2) {
-			return true // L-shape movement
+			return true 
 		}
 	case 'B', 'b':
 		if abs(fromRow-toRow) == abs(fromCol-toCol) {
-			return true // Moves diagonally
+			return true 
 		}
 	case 'Q', 'q': 
 		if fromRow == toRow || fromCol == toCol || abs(fromRow-toRow) == abs(fromCol-toCol) {
-			return true // Moves like a rook or bishop
+			return true
 		}
 	case 'K', 'k':
 		if abs(fromRow-toRow) <= 1 && abs(fromCol-toCol) <= 1 {
-			return true // Moves one square in any direction
+			return true 
 		}
 	}
 

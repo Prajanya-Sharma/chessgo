@@ -32,6 +32,9 @@ var pieceSelected bool
 var parsedBoard [8][8]rune
 var whiteTurn = true
 
+var boardContainer *fyne.Container
+var boardCells [8][8]*fyne.Container
+
 func parseFEN(fen string) [8][8]rune {
 	var board [8][8]rune
 	rows := strings.Split(fen, "/")
@@ -109,6 +112,35 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 
 	whiteTurn = !whiteTurn
 	pieceSelected = false
+
+	updateBoardUI(fromRow, fromCol, toRow, toCol)
+}
+
+func updateBoardUI(fromRow, fromCol, toRow, toCol int) {
+	fromCell := boardCells[fromRow][fromCol]
+	toCell := boardCells[toRow][toCol]
+
+	fromCell.Objects = fromCell.Objects[:1]
+	toCell.Objects = toCell.Objects[:1]  
+
+	if parsedBoard[fromRow][fromCol] != 0 {
+		imagePath := filepath.Join(pieceDir, mpPieceToImage[parsedBoard[fromRow][fromCol]])
+		pieceImage := canvas.NewImageFromFile(imagePath)
+		pieceImage.FillMode = canvas.ImageFillContain
+		pieceImage.Resize(fyne.NewSize(75, 75))
+		fromCell.Add(pieceImage)
+	}
+
+	if parsedBoard[toRow][toCol] != 0 {
+		imagePath := filepath.Join(pieceDir, mpPieceToImage[parsedBoard[toRow][toCol]])
+		pieceImage := canvas.NewImageFromFile(imagePath)
+		pieceImage.FillMode = canvas.ImageFillContain
+		pieceImage.Resize(fyne.NewSize(75, 75))
+		toCell.Add(pieceImage)
+	}
+
+	fromCell.Refresh()
+	toCell.Refresh()
 }
 
 func generateChessBoard() *fyne.Container {
@@ -159,6 +191,7 @@ func generateChessBoard() *fyne.Container {
 				cell = container.NewStack(square, tapButton)
 			}
 
+			boardCells[row][col] = cell
 			board.Add(cell)
 		}
 	}
@@ -173,11 +206,11 @@ func main() {
 
 	parsedBoard = parseFEN(strings.Split(startFenNotation, " ")[0])
 
-	content := container.NewVBox(
+	boardContainer = container.NewVBox(
 		widget.NewLabel("Chess Game"),
 		generateChessBoard(),
 	)
 
-	window.SetContent(content)
+	window.SetContent(boardContainer)
 	window.ShowAndRun()
 }

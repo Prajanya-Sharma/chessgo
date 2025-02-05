@@ -9,7 +9,7 @@ func HandlePieceClick(board [8][8]rune, piece rune, x, y int) {
 	var possibleMoves []pieces.Move 
 
 	switch piece {
-	case 'R', 'r': // Only Rook moves are implemented
+	case 'R', 'r': 
 		possibleMoves = pieces.GetRookMoves(board, x, y)
 	default:
 		fmt.Println("Move logic for this piece is not implemented yet.")
