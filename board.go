@@ -5,13 +5,11 @@ import (
 	"image/color"
 	"path/filepath"
 	"strings"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
-
 	"chess-engine/handlers"
 )
 
@@ -25,7 +23,7 @@ var mpPieceToImage = map[rune]string{
 	'Q': "whiteQueen.svg", 'K': "whiteKing.svg",
 	'p': "blackPawn.svg", 'n': "blackKnight.svg", 'b': "blackBishop.svg", 'r': "blackRook.svg",
 	'q': "blackQueen.svg", 'k': "blackKing.svg",
-}
+    }
 
 var selectedRow, selectedCol int
 var pieceSelected bool
@@ -90,9 +88,16 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 
 	piece := parsedBoard[fromRow][fromCol]
 	isWhitePiece := piece >= 'A' && piece <= 'Z'
+	targetPiece := parsedBoard[toRow][toCol]
+	isTargetWhitePiece := targetPiece >= 'A' && targetPiece <= 'Z'
 
 	if (whiteTurn && !isWhitePiece) || (!whiteTurn && isWhitePiece) {
 		fmt.Println("Not your turn!")
+		return
+	}
+
+	if targetPiece != 0 && ((whiteTurn && isTargetWhitePiece) || (!whiteTurn && !isTargetWhitePiece)) {
+		fmt.Println("Can't capture own piece")
 		return
 	}
 
@@ -120,15 +125,40 @@ func updateBoardUI(fromRow, fromCol, toRow, toCol int) {
 	fromCell := boardCells[fromRow][fromCol]
 	toCell := boardCells[toRow][toCol]
 
-	fromCell.Objects = fromCell.Objects[:1]
-	toCell.Objects = toCell.Objects[:1]  
+	fromCell.Objects = fromCell.Objects[:1] // Keep only the square
+	toCell.Objects = toCell.Objects[:1]     // Keep only the square
 
 	if parsedBoard[fromRow][fromCol] != 0 {
 		imagePath := filepath.Join(pieceDir, mpPieceToImage[parsedBoard[fromRow][fromCol]])
 		pieceImage := canvas.NewImageFromFile(imagePath)
 		pieceImage.FillMode = canvas.ImageFillContain
 		pieceImage.Resize(fyne.NewSize(75, 75))
+
+		rowCopy, colCopy := fromRow, fromCol
+		tapButton := widget.NewButton(" ", func() {
+			if !pieceSelected {
+				selectedRow, selectedCol = rowCopy, colCopy
+				pieceSelected = true
+				fmt.Println("Piece selected at:", selectedRow, selectedCol)
+			} else {
+				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
+			}
+		})
+		tapButton.Importance = widget.LowImportance
+		tapButton.Resize(fyne.NewSize(75, 75))
+
 		fromCell.Add(pieceImage)
+		fromCell.Add(tapButton)
+	} else {
+		rowCopy, colCopy := fromRow, fromCol
+		tapButton := widget.NewButton(" ", func() {
+			if pieceSelected {
+				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
+			}
+		})
+		tapButton.Importance = widget.LowImportance
+		tapButton.Resize(fyne.NewSize(75, 75))
+		fromCell.Add(tapButton)
 	}
 
 	if parsedBoard[toRow][toCol] != 0 {
@@ -136,7 +166,32 @@ func updateBoardUI(fromRow, fromCol, toRow, toCol int) {
 		pieceImage := canvas.NewImageFromFile(imagePath)
 		pieceImage.FillMode = canvas.ImageFillContain
 		pieceImage.Resize(fyne.NewSize(75, 75))
+
+		rowCopy, colCopy := toRow, toCol
+		tapButton := widget.NewButton(" ", func() {
+			if !pieceSelected {
+				selectedRow, selectedCol = rowCopy, colCopy
+				pieceSelected = true
+				fmt.Println("Piece selected at:", selectedRow, selectedCol)
+			} else {
+				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
+			}
+		})
+		tapButton.Importance = widget.LowImportance
+		tapButton.Resize(fyne.NewSize(75, 75))
+
 		toCell.Add(pieceImage)
+		toCell.Add(tapButton)
+	} else {
+		rowCopy, colCopy := toRow, toCol
+		tapButton := widget.NewButton(" ", func() {
+			if pieceSelected {
+				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
+			}
+		})
+		tapButton.Importance = widget.LowImportance
+		tapButton.Resize(fyne.NewSize(75, 75))
+		toCell.Add(tapButton)
 	}
 
 	fromCell.Refresh()
@@ -214,3 +269,4 @@ func main() {
 	window.SetContent(boardContainer)
 	window.ShowAndRun()
 }
+
