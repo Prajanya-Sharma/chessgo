@@ -23,7 +23,7 @@ var mpPieceToImage = map[rune]string{
 	'Q': "whiteQueen.svg", 'K': "whiteKing.svg",
 	'p': "blackPawn.svg", 'n': "blackKnight.svg", 'b': "blackBishop.svg", 'r': "blackRook.svg",
 	'q': "blackQueen.svg", 'k': "blackKing.svg",
-    }
+}
 
 var selectedRow, selectedCol int
 var pieceSelected bool
@@ -43,7 +43,7 @@ func parseFEN(fen string) [8][8]rune {
 				colIdx += int(char - '0')
 			} else {
 				board[rowIdx][colIdx] = char
-				colIdx++ 
+				colIdx++
 			}
 		}
 	}
@@ -67,7 +67,7 @@ func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 	} else if fromCol > toCol {
 		colStep = -1
 	}
-    
+
 	r, c := fromRow+rowStep, fromCol+colStep
 	for r != toRow || c != toCol {
 		if parsedBoard[r][c] != 0 {
@@ -106,9 +106,14 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 		return
 	}
 
-	if !handlers.IsValidMove(parsedBoard, piece, fromRow, fromCol, toRow, toCol) {
+	var promotionPiece rune
+	if !handlers.IsValidMove(parsedBoard, piece, fromRow, fromCol, toRow, toCol, &promotionPiece) {
 		fmt.Println("Invalid move for piece:", string(piece))
 		return
+	}
+
+	if promotionPiece != 0 {
+		piece = promotionPiece
 	}
 
 	parsedBoard[toRow][toCol] = piece

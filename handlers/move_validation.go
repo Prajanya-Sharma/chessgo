@@ -2,7 +2,7 @@ package handlers
 
 import "fmt"
 
-func IsValidMove(board [8][8]rune, piece rune, fromRow, fromCol, toRow, toCol int) bool {
+func IsValidMove(board [8][8]rune, piece rune, fromRow, fromCol, toRow, toCol int, promotionPiece *rune) bool {
 
 	if toRow < 0 || toRow >= 8 || toCol < 0 || toCol >= 8 {
 		fmt.Println("Move out of bounds")
@@ -20,10 +20,32 @@ func IsValidMove(board [8][8]rune, piece rune, fromRow, fromCol, toRow, toCol in
 	switch piece {
 	case 'P':
 		if fromCol == toCol && (toRow == fromRow-1 || (fromRow == 6 && toRow == 4)) { 
+			if toRow == 0 {
+				// Prompt for promotion
+				fmt.Println("Promote pawn to (Q, R, B, N): ")
+				fmt.Scanf("%c", promotionPiece)
+				if *promotionPiece == 'Q' || *promotionPiece == 'R' || *promotionPiece == 'B' || *promotionPiece == 'N' {
+					return true
+				} else {
+					fmt.Println("Invalid promotion piece")
+					return false
+				}
+			}
 			return true 
 		}
 	case 'p': 
 		if fromCol == toCol && (toRow == fromRow+1 || (fromRow == 1 && toRow == 3)) { 
+			if toRow == 7 {
+				// Prompt for promotion
+				fmt.Println("Promote pawn to (q, r, b, n): ")
+				fmt.Scanf("%c", promotionPiece)
+				if *promotionPiece == 'q' || *promotionPiece == 'r' || *promotionPiece == 'b' || *promotionPiece == 'n' {
+					return true
+				} else {
+					fmt.Println("Invalid promotion piece")
+					return false
+				}
+			}
 			return true 
 		}
 	case 'R', 'r':
