@@ -50,7 +50,8 @@ func IsValidMove(board [8][8]rune, piece rune, fromRow, fromCol, toRow, toCol in
 		}
 	case 'R', 'r':
 		if fromRow == toRow || fromCol == toCol { 
-			return true
+			return true 
+			
 		}
 	case 'N', 'n': 
 		rowDiff, colDiff := abs(fromRow-toRow), abs(fromCol-toCol)
