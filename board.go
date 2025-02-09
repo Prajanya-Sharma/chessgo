@@ -80,6 +80,13 @@ func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 	return true // Path is clear
 }
 
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func movePiece(fromRow, fromCol, toRow, toCol int) {
 	if fromRow == toRow && fromCol == toCol {
 		pieceSelected = false
@@ -91,8 +98,44 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	targetPiece := parsedBoard[toRow][toCol]
 	isTargetWhitePiece := targetPiece >= 'A' && targetPiece <= 'Z'
 
+	// Check if it's the right player's turn
 	if (whiteTurn && !isWhitePiece) || (!whiteTurn && isWhitePiece) {
 		fmt.Println("Not your turn!")
+		return
+	}
+
+	// ye hanlers se castling move detection
+	if (piece == 'K' || piece == 'k') && abs(fromCol-toCol) == 2 {
+		if handlers.IsCastleable(parsedBoard, fromRow, fromCol, toRow, toCol) {
+			isKingSide := toCol > fromCol
+			rookFromCol := 0
+			rookToCol := 3
+			if isKingSide {
+				rookFromCol = 7
+				rookToCol = 5
+			}
+
+			// ye hai for Move king
+			parsedBoard[toRow][toCol] = piece
+			parsedBoard[fromRow][fromCol] = 0
+
+			// ye hai for Move rook
+			rook := 'R'
+			if !isWhitePiece {
+				rook = 'r'
+			}
+			parsedBoard[toRow][rookToCol] = rook
+			parsedBoard[toRow][rookFromCol] = 0
+
+			// Update UI for both king and rook moves individually kyunki deletion bhi krni hai
+			updateBoardUI(fromRow, fromCol, toRow, toCol)
+			updateBoardUI(toRow, rookFromCol, toRow, rookToCol)
+
+			whiteTurn = !whiteTurn
+			pieceSelected = false
+			return
+		}
+		pieceSelected = false
 		return
 	}
 
@@ -130,8 +173,8 @@ func updateBoardUI(fromRow, fromCol, toRow, toCol int) {
 	fromCell := boardCells[fromRow][fromCol]
 	toCell := boardCells[toRow][toCol]
 
-	fromCell.Objects = fromCell.Objects[:1] // Keep only the square
-	toCell.Objects = toCell.Objects[:1]     // Keep only the square
+	fromCell.Objects = fromCell.Objects[:1] 
+	toCell.Objects = toCell.Objects[:1]     
 
 	if parsedBoard[fromRow][fromCol] != 0 {
 		imagePath := filepath.Join(pieceDir, mpPieceToImage[parsedBoard[fromRow][fromCol]])
@@ -225,7 +268,6 @@ func generateChessBoard() *fyne.Container {
 				pieceImage.Resize(fyne.NewSize(75, 75))
 
 				rowCopy, colCopy := row, col
-
 				tapButton := widget.NewButton(" ", func() {
 					if !pieceSelected {
 						selectedRow, selectedCol = rowCopy, colCopy
@@ -274,4 +316,3 @@ func main() {
 	window.SetContent(boardContainer)
 	window.ShowAndRun()
 }
-
