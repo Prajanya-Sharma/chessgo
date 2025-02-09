@@ -98,13 +98,11 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	targetPiece := parsedBoard[toRow][toCol]
 	isTargetWhitePiece := targetPiece >= 'A' && targetPiece <= 'Z'
 
-	// Check if it's the right player's turn
 	if (whiteTurn && !isWhitePiece) || (!whiteTurn && isWhitePiece) {
 		fmt.Println("Not your turn!")
 		return
 	}
 
-	// ye hanlers se castling move detection
 	if (piece == 'K' || piece == 'k') && abs(fromCol-toCol) == 2 {
 		if handlers.IsCastleable(parsedBoard, fromRow, fromCol, toRow, toCol) {
 			isKingSide := toCol > fromCol
@@ -115,11 +113,9 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 				rookToCol = 5
 			}
 
-			// ye hai for Move king
 			parsedBoard[toRow][toCol] = piece
 			parsedBoard[fromRow][fromCol] = 0
 
-			// ye hai for Move rook
 			rook := 'R'
 			if !isWhitePiece {
 				rook = 'r'
