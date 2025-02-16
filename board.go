@@ -1,16 +1,17 @@
 package main
 
 import (
+	"chess-engine/handlers"
 	"fmt"
 	"image/color"
 	"path/filepath"
 	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
-	"chess-engine/handlers"
 )
 
 const boardSize = 8
@@ -23,7 +24,7 @@ var mpPieceToImage = map[rune]string{
 	'Q': "whiteQueen.svg", 'K': "whiteKing.svg",
 	'p': "blackPawn.svg", 'n': "blackKnight.svg", 'b': "blackBishop.svg", 'r': "blackRook.svg",
 	'q': "blackQueen.svg", 'k': "blackKing.svg",
-    }
+}
 
 var selectedRow, selectedCol int
 var pieceSelected bool
@@ -32,6 +33,44 @@ var whiteTurn = true
 
 var boardContainer *fyne.Container
 var boardCells [8][8]*fyne.Container
+
+type KingPosition struct {
+	Row     int
+	Col     int
+	IsCheck bool
+}
+
+var whiteKing = KingPosition{Row: 7, Col: 4, IsCheck: false}
+var blackKing = KingPosition{Row: 0, Col: 4, IsCheck: false}
+
+func handlePieceClick(row, col int) {
+	clickedPiece := parsedBoard[row][col]
+
+	if !pieceSelected {
+		if clickedPiece != 0 && (whiteTurn == isWhite(clickedPiece)) {
+			selectedRow, selectedCol = row, col
+			pieceSelected = true
+			fmt.Printf("Selected piece at: %d, %d\n", row, col)
+		}
+	} else {
+
+		if clickedPiece != 0 &&
+			(whiteTurn == isWhite(clickedPiece)) &&
+			(row != selectedRow || col != selectedCol) {
+			selectedRow, selectedCol = row, col
+			fmt.Printf("Reselected piece at: %d, %d\n", row, col)
+			return
+		}
+
+		if row == selectedRow && col == selectedCol {
+			pieceSelected = false
+			fmt.Println("Piece deselected")
+			return
+		}
+
+		movePiece(selectedRow, selectedCol, row, col)
+	}
+}
 
 func parseFEN(fen string) [8][8]rune {
 	var board [8][8]rune
@@ -43,7 +82,7 @@ func parseFEN(fen string) [8][8]rune {
 				colIdx += int(char - '0')
 			} else {
 				board[rowIdx][colIdx] = char
-				colIdx++ 
+				colIdx++
 			}
 		}
 	}
@@ -67,7 +106,7 @@ func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 	} else if fromCol > toCol {
 		colStep = -1
 	}
-    
+
 	r, c := fromRow+rowStep, fromCol+colStep
 	for r != toRow || c != toCol {
 		if parsedBoard[r][c] != 0 {
@@ -77,7 +116,14 @@ func isPathClear(fromRow, fromCol, toRow, toCol int) bool {
 		c += colStep
 	}
 
-	return true // Path is clear
+	return true
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func movePiece(fromRow, fromCol, toRow, toCol int) {
@@ -95,24 +141,93 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 		fmt.Println("Not your turn!")
 		return
 	}
-
-	if targetPiece != 0 && ((whiteTurn && isTargetWhitePiece) || (!whiteTurn && !isTargetWhitePiece)) {
-		fmt.Println("Can't capture own piece")
+	//handle castling here...
+	if (piece == 'K' || piece == 'k') && abs(fromCol-toCol) == 2 {
+		if handlers.IsCastleable(parsedBoard, fromRow, fromCol, toRow, toCol) {
+			performCastling(fromRow, fromCol, toRow, toCol, piece)
+			return
+		}
+		fmt.Println("Not Possible to castle")
+		pieceSelected = false
 		return
 	}
+	//khud ka mat kato
+	if targetPiece != 0 && ((whiteTurn && isTargetWhitePiece) || (!whiteTurn && !isTargetWhitePiece)) {
+		fmt.Println("Can't capture own piece")
 
+		return
+	}
+	//clear path
 	if !isPathClear(fromRow, fromCol, toRow, toCol) {
 		fmt.Println("Path is blocked for piece:", string(piece))
 		return
 	}
 
-	if !handlers.IsValidMove(parsedBoard, piece, fromRow, fromCol, toRow, toCol) {
+	var promotionPiece rune
+	if !handlers.IsValidMove(parsedBoard, piece, fromRow, fromCol, toRow, toCol, &promotionPiece) {
 		fmt.Println("Invalid move for piece:", string(piece))
 		return
 	}
 
+	tempBoard := [8][8]rune{}
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			tempBoard[i][j] = parsedBoard[i][j]
+		}
+	}
+	tempBoard[toRow][toCol] = piece
+	tempBoard[fromRow][fromCol] = 0
+
+	kingToCheck := &whiteKing
+	opponentKing := &blackKing
+	if !isWhitePiece {
+		kingToCheck = &blackKing
+		opponentKing = &whiteKing
+	}
+
+	if handlers.IsSquareUnderAttack(tempBoard, kingToCheck.Row, kingToCheck.Col, isWhitePiece) {
+		fmt.Println("Move would leave your king in check!")
+		return
+	}
+
+	if promotionPiece != 0 {
+		piece = promotionPiece
+	}
+
 	parsedBoard[toRow][toCol] = piece
 	parsedBoard[fromRow][fromCol] = 0
+
+	if piece == 'K' {
+		whiteKing.Row, whiteKing.Col = toRow, toCol
+	} else if piece == 'k' {
+		blackKing.Row, blackKing.Col = toRow, toCol
+	}
+
+	if handlers.IsSquareUnderAttack(parsedBoard, opponentKing.Row, opponentKing.Col, !isWhitePiece) {
+		if isWhitePiece {
+			fmt.Println("Black KING is under check")
+			blackKing.IsCheck = true
+			// Check for checkmate
+			if isCheckmate(false) {
+				fmt.Println("Checkmate! White wins!")
+			}
+		} else {
+			fmt.Println("White KING is under check")
+			whiteKing.IsCheck = true
+			// Check for checkmate
+			if isCheckmate(true) {
+				fmt.Println("Checkmate! Black wins!")
+			}
+		}
+	} else {
+		// Clear check status if king is no longer in check
+		if isWhitePiece {
+			blackKing.IsCheck = false
+		} else {
+			whiteKing.IsCheck = false
+		}
+	}
+
 	fmt.Printf("Moved %c from (%d, %d) to (%d, %d)\n", piece, fromRow, fromCol, toRow, toCol)
 
 	whiteTurn = !whiteTurn
@@ -121,81 +236,207 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	updateBoardUI(fromRow, fromCol, toRow, toCol)
 }
 
+func isCheckmate(isWhiteKing bool) bool {
+	kingPos := &blackKing
+	if isWhiteKing {
+		kingPos = &whiteKing
+	}
+
+	fmt.Printf("\n=== CHECKMATE ANALYSIS ===\n")
+	fmt.Printf("Analyzing position for %s king at (%d,%d)\n",
+		map[bool]string{true: "White", false: "Black"}[isWhiteKing],
+		kingPos.Row, kingPos.Col)
+
+	// First verify the king is actually in check
+	if !kingPos.IsCheck {
+		fmt.Println("King is not in check - cannot be checkmate")
+		return false
+	}
+
+	fmt.Println("\nChecking all possible king moves:")
+	// Try all possible king moves
+	kingMoves := [][2]int{
+		{-1, -1}, {-1, 0}, {-1, 1},
+		{0, -1}, {0, 1},
+		{1, -1}, {1, 0}, {1, 1},
+	}
+
+	kingPiece := 'k'
+	if isWhiteKing {
+		kingPiece = 'K'
+	}
+
+	// Check each possible king move
+	for _, move := range kingMoves {
+		newRow := kingPos.Row + move[0]
+		newCol := kingPos.Col + move[1]
+
+		if newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 {
+			// Create a deep copy of the board
+			tempBoard := [8][8]rune{}
+			for i := 0; i < 8; i++ {
+				for j := 0; j < 8; j++ {
+					tempBoard[i][j] = parsedBoard[i][j]
+				}
+			}
+
+			targetPiece := tempBoard[newRow][newCol]
+			isTargetWhitePiece := targetPiece >= 'A' && targetPiece <= 'Z'
+
+			fmt.Printf("Testing king move to (%d,%d): ", newRow, newCol)
+
+			// Check if square is empty or contains enemy piece
+			if targetPiece == 0 || (isWhiteKing != isTargetWhitePiece) {
+				// First check if it's a valid move according to chess rules
+				if handlers.IsValidMove(tempBoard, kingPiece, kingPos.Row, kingPos.Col, newRow, newCol, nil) {
+					// Make the move on the temporary board
+					tempBoard[newRow][newCol] = kingPiece
+					tempBoard[kingPos.Row][kingPos.Col] = 0
+
+					// Check if the new position would put the king in check
+					if !handlers.IsSquareUnderAttack(tempBoard, newRow, newCol, isWhiteKing) {
+						fmt.Println("LEGAL MOVE FOUND - not checkmate")
+						return false
+					}
+					fmt.Println("square is under attack")
+				} else {
+					fmt.Println("invalid move")
+				}
+			} else {
+				fmt.Println("square occupied by friendly piece")
+			}
+		}
+	}
+
+	fmt.Println("\nChecking if any piece can block or capture:")
+	// Try all other pieces
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := parsedBoard[row][col]
+			// Skip empty squares and opponent's pieces
+			if piece == 0 || (isWhiteKing != (piece >= 'A' && piece <= 'Z')) {
+				continue
+			}
+
+			fmt.Printf("\nTesting piece %c at (%d,%d):\n", piece, row, col)
+			// Try every possible destination
+			for toRow := 0; toRow < 8; toRow++ {
+				for toCol := 0; toCol < 8; toCol++ {
+					if handlers.IsValidMove(parsedBoard, piece, row, col, toRow, toCol, nil) {
+						// Create a copy of the board
+						tempBoard := [8][8]rune{}
+						for i := 0; i < 8; i++ {
+							for j := 0; j < 8; j++ {
+								tempBoard[i][j] = parsedBoard[i][j]
+							}
+						}
+
+						// Make the move
+						tempBoard[toRow][toCol] = piece
+						tempBoard[row][col] = 0
+
+						// If this is a king move, check if the new position is safe
+						if (piece == 'K' && isWhiteKing) || (piece == 'k' && !isWhiteKing) {
+							if handlers.IsSquareUnderAttack(tempBoard, toRow, toCol, isWhiteKing) {
+								continue // Skip this move as it puts the king in check
+							}
+						}
+
+						// Check if this gets us out of check
+						kingCheckRow := kingPos.Row
+						kingCheckCol := kingPos.Col
+						if piece == kingPiece {
+							kingCheckRow = toRow
+							kingCheckCol = toCol
+						}
+
+						if !handlers.IsSquareUnderAttack(tempBoard, kingCheckRow, kingCheckCol, isWhiteKing) {
+							fmt.Printf("Piece can move to (%d,%d) to prevent checkmate\n", toRow, toCol)
+							return false
+						}
+					}
+				}
+			}
+		}
+	}
+
+	fmt.Println("\nCHECKMATE CONFIRMED!")
+	return true
+}
+
+func performCastling(fromRow, fromCol, toRow, toCol int, piece rune) {
+	isKingSide := toCol > fromCol
+	rookFromCol := 0
+	rookToCol := 3
+	if isKingSide {
+		rookFromCol = 7
+		rookToCol = 5
+	}
+
+	parsedBoard[toRow][toCol] = piece
+	parsedBoard[fromRow][fromCol] = 0
+
+	rook := 'R'
+	if piece == 'k' {
+		rook = 'r'
+	}
+	parsedBoard[toRow][rookToCol] = rook
+	parsedBoard[toRow][rookFromCol] = 0
+
+	updateBoardUI(fromRow, fromCol, toRow, toCol)
+	updateBoardUI(toRow, rookFromCol, toRow, rookToCol)
+
+	whiteTurn = !whiteTurn
+	pieceSelected = false
+}
+
 func updateBoardUI(fromRow, fromCol, toRow, toCol int) {
+
 	fromCell := boardCells[fromRow][fromCol]
 	toCell := boardCells[toRow][toCol]
 
-	fromCell.Objects = fromCell.Objects[:1] // Keep only the square
-	toCell.Objects = toCell.Objects[:1]     // Keep only the square
+	fromSquareColor := color.White
+	if (fromRow+fromCol)%2 == 1 {
+		fromSquareColor = color.Black
+	}
+	toSquareColor := color.White
+	if (toRow+toCol)%2 == 1 {
+		toSquareColor = color.Black
+	}
 
-	if parsedBoard[fromRow][fromCol] != 0 {
-		imagePath := filepath.Join(pieceDir, mpPieceToImage[parsedBoard[fromRow][fromCol]])
+	fromSquare := canvas.NewRectangle(fromSquareColor)
+	toSquare := canvas.NewRectangle(toSquareColor)
+	fromSquare.SetMinSize(fyne.NewSize(75, 75))
+	toSquare.SetMinSize(fyne.NewSize(75, 75))
+
+	fromButton := widget.NewButton(" ", func() {
+		handlePieceClick(fromRow, fromCol)
+	})
+	toButton := widget.NewButton(" ", func() {
+		handlePieceClick(toRow, toCol)
+	})
+	fromButton.Importance = widget.LowImportance
+	toButton.Importance = widget.LowImportance
+	fromButton.Resize(fyne.NewSize(75, 75))
+	toButton.Resize(fyne.NewSize(75, 75))
+
+	fromCell.Objects = []fyne.CanvasObject{fromSquare, fromButton}
+
+	toCell.Objects = []fyne.CanvasObject{toSquare}
+	if piece := parsedBoard[toRow][toCol]; piece != 0 {
+		imagePath := filepath.Join(pieceDir, mpPieceToImage[piece])
 		pieceImage := canvas.NewImageFromFile(imagePath)
 		pieceImage.FillMode = canvas.ImageFillContain
 		pieceImage.Resize(fyne.NewSize(75, 75))
-
-		rowCopy, colCopy := fromRow, fromCol
-		tapButton := widget.NewButton(" ", func() {
-			if !pieceSelected {
-				selectedRow, selectedCol = rowCopy, colCopy
-				pieceSelected = true
-				fmt.Println("Piece selected at:", selectedRow, selectedCol)
-			} else {
-				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
-			}
-		})
-		tapButton.Importance = widget.LowImportance
-		tapButton.Resize(fyne.NewSize(75, 75))
-
-		fromCell.Add(pieceImage)
-		fromCell.Add(tapButton)
-	} else {
-		rowCopy, colCopy := fromRow, fromCol
-		tapButton := widget.NewButton(" ", func() {
-			if pieceSelected {
-				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
-			}
-		})
-		tapButton.Importance = widget.LowImportance
-		tapButton.Resize(fyne.NewSize(75, 75))
-		fromCell.Add(tapButton)
+		toCell.Objects = append(toCell.Objects, pieceImage)
 	}
-
-	if parsedBoard[toRow][toCol] != 0 {
-		imagePath := filepath.Join(pieceDir, mpPieceToImage[parsedBoard[toRow][toCol]])
-		pieceImage := canvas.NewImageFromFile(imagePath)
-		pieceImage.FillMode = canvas.ImageFillContain
-		pieceImage.Resize(fyne.NewSize(75, 75))
-
-		rowCopy, colCopy := toRow, toCol
-		tapButton := widget.NewButton(" ", func() {
-			if !pieceSelected {
-				selectedRow, selectedCol = rowCopy, colCopy
-				pieceSelected = true
-				fmt.Println("Piece selected at:", selectedRow, selectedCol)
-			} else {
-				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
-			}
-		})
-		tapButton.Importance = widget.LowImportance
-		tapButton.Resize(fyne.NewSize(75, 75))
-
-		toCell.Add(pieceImage)
-		toCell.Add(tapButton)
-	} else {
-		rowCopy, colCopy := toRow, toCol
-		tapButton := widget.NewButton(" ", func() {
-			if pieceSelected {
-				movePiece(selectedRow, selectedCol, rowCopy, colCopy)
-			}
-		})
-		tapButton.Importance = widget.LowImportance
-		tapButton.Resize(fyne.NewSize(75, 75))
-		toCell.Add(tapButton)
-	}
+	toCell.Objects = append(toCell.Objects, toButton)
 
 	fromCell.Refresh()
 	toCell.Refresh()
+}
+func isWhite(piece rune) bool {
+	return piece == 'P' || piece == 'N' || piece == 'B' || piece == 'R' || piece == 'Q' || piece == 'K'
 }
 
 func generateChessBoard() *fyne.Container {
@@ -210,39 +451,22 @@ func generateChessBoard() *fyne.Container {
 			square := canvas.NewRectangle(squareColor)
 			square.SetMinSize(fyne.NewSize(75, 75))
 
-			blockHasPiece := parsedBoard[row][col]
 			cell := container.NewStack(square)
 
-			if blockHasPiece != 0 {
-				imagePath := filepath.Join(pieceDir, mpPieceToImage[blockHasPiece])
+			rowCopy, colCopy := row, col
+			tapButton := widget.NewButton(" ", func() {
+				handlePieceClick(rowCopy, colCopy)
+			})
+			tapButton.Importance = widget.LowImportance
+			tapButton.Resize(fyne.NewSize(75, 75))
+
+			if piece := parsedBoard[row][col]; piece != 0 {
+				imagePath := filepath.Join(pieceDir, mpPieceToImage[piece])
 				pieceImage := canvas.NewImageFromFile(imagePath)
 				pieceImage.FillMode = canvas.ImageFillContain
 				pieceImage.Resize(fyne.NewSize(75, 75))
-
-				rowCopy, colCopy := row, col
-
-				tapButton := widget.NewButton(" ", func() {
-					if !pieceSelected {
-						selectedRow, selectedCol = rowCopy, colCopy
-						pieceSelected = true
-						fmt.Println("Piece selected at:", selectedRow, selectedCol)
-					} else {
-						movePiece(selectedRow, selectedCol, rowCopy, colCopy)
-					}
-				})
-				tapButton.Importance = widget.LowImportance
-				tapButton.Resize(fyne.NewSize(75, 75))
-
 				cell = container.NewStack(square, pieceImage, tapButton)
 			} else {
-				rowCopy, colCopy := row, col
-				tapButton := widget.NewButton(" ", func() {
-					if pieceSelected {
-						movePiece(selectedRow, selectedCol, rowCopy, colCopy)
-					}
-				})
-				tapButton.Importance = widget.LowImportance
-				tapButton.Resize(fyne.NewSize(75, 75))
 				cell = container.NewStack(square, tapButton)
 			}
 
@@ -269,4 +493,3 @@ func main() {
 	window.SetContent(boardContainer)
 	window.ShowAndRun()
 }
-
