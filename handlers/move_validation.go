@@ -154,13 +154,16 @@ func IsValidMove(board [8][8]rune, piece rune, fromRow, fromCol, toRow, toCol in
 		if IsCastleable(board, fromRow, fromCol, toRow, toCol) {
 			return true
 		}
+
 	}
 
 	return false
 }
+
 func handlePawnPromotion(toRow int, promotionPiece *rune, isWhite bool) bool {
 	if (isWhite && toRow == 0) || (!isWhite && toRow == 7) {
 		if promotionPiece != nil && (*promotionPiece == 'Q' || *promotionPiece == 'R' || *promotionPiece == 'B' || *promotionPiece == 'N' || *promotionPiece == 'q' || *promotionPiece == 'r' || *promotionPiece == 'b' || *promotionPiece == 'n') {
+			fmt.Println("Pawn promotion")
 			return true
 		}
 		fmt.Println("Invalid or missing promotion piece.")

@@ -162,8 +162,13 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 		fmt.Println("Path is blocked for piece:", string(piece))
 		return
 	}
-
 	var promotionPiece rune
+	if whiteTurn && toRow == 0 && piece == 'P' {
+		promotionPiece = 'Q'
+	} else if !whiteTurn && toRow == 7 && piece == 'p' {
+		promotionPiece = 'q'
+	}
+
 	if !handlers.IsValidMove(parsedBoard, piece, fromRow, fromCol, toRow, toCol, &promotionPiece) {
 		fmt.Println("Invalid move for piece:", string(piece))
 		return
@@ -185,6 +190,23 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 		opponentKing = &whiteKing
 	}
 
+	//change king position if selcted piece is king
+	if piece == 'K' {
+		whiteKing.Row, whiteKing.Col = toRow, toCol
+	} else if piece == 'k' {
+		blackKing.Row, blackKing.Col = toRow, toCol
+	}
+	//after change see if the king is till under check if not then change IsCheck
+	if whiteKing.IsCheck && whiteTurn {
+		if !handlers.IsSquareUnderAttack(parsedBoard, toRow, toCol, true) {
+			whiteKing.IsCheck = false
+		}
+	} else if blackKing.IsCheck && !whiteTurn {
+		if !handlers.IsSquareUnderAttack(parsedBoard, toRow, toCol, false) {
+			blackKing.IsCheck = false
+		}
+	}
+
 	if handlers.IsSquareUnderAttack(tempBoard, kingToCheck.Row, kingToCheck.Col, isWhitePiece) {
 		fmt.Println("Move would leave your king in check!")
 		return
@@ -193,6 +215,15 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	if promotionPiece != 0 {
 		piece = promotionPiece
 	}
+	// if piece == 'K' || piece == 'k' {
+	// 	if !handlers.IsInCheck(tempBoard, isWhitePiece, toRow, toCol) {
+	// 		if piece == 'K' {
+	// 			whiteKing.IsCheck = false
+	// 		} else {
+	// 			blackKing.IsCheck = false
+	// 		}
+	// 	}
+	// }
 
 	parsedBoard[toRow][toCol] = piece
 	parsedBoard[fromRow][fromCol] = 0
@@ -220,8 +251,7 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 			}
 		}
 	} else {
-		// Clear check status if king is no longer in check
-		if isWhitePiece {
+		if !isWhitePiece {
 			blackKing.IsCheck = false
 		} else {
 			whiteKing.IsCheck = false
@@ -234,6 +264,19 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	pieceSelected = false
 
 	updateBoardUI(fromRow, fromCol, toRow, toCol)
+
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if parsedBoard[i][j] != 0 {
+				fmt.Printf("%c ", parsedBoard[i][j])
+			} else {
+				fmt.Printf("  ")
+			}
+
+		}
+		fmt.Println()
+	}
+	fmt.Println(whiteKing.IsCheck, blackKing.IsCheck)
 }
 
 func isCheckmate(isWhiteKing bool) bool {
@@ -285,80 +328,68 @@ func isCheckmate(isWhiteKing bool) bool {
 
 			fmt.Printf("Testing king move to (%d,%d): ", newRow, newCol)
 
-			// Check if square is empty or contains enemy piece
 			if targetPiece == 0 || (isWhiteKing != isTargetWhitePiece) {
-				// First check if it's a valid move according to chess rules
-				if handlers.IsValidMove(tempBoard, kingPiece, kingPos.Row, kingPos.Col, newRow, newCol, nil) {
-					// Make the move on the temporary board
-					tempBoard[newRow][newCol] = kingPiece
-					tempBoard[kingPos.Row][kingPos.Col] = 0
-
-					// Check if the new position would put the king in check
-					if !handlers.IsSquareUnderAttack(tempBoard, newRow, newCol, isWhiteKing) {
-						fmt.Println("LEGAL MOVE FOUND - not checkmate")
-						return false
-					}
-					fmt.Println("square is under attack")
-				} else {
-					fmt.Println("invalid move")
+				tempBoard[newRow][newCol] = kingPiece
+				tempBoard[kingPos.Row][kingPos.Col] = 0
+				if !handlers.IsSquareUnderAttack(tempBoard, newRow, newCol, isWhiteKing) {
+					fmt.Println("LEGAL MOVE FOUND - not checkmate")
+					return false
 				}
+				fmt.Println("square is under attack")
+
 			} else {
 				fmt.Println("square occupied by friendly piece")
 			}
 		}
 	}
 
-	fmt.Println("\nChecking if any piece can block or capture:")
-	// Try all other pieces
-	for row := 0; row < 8; row++ {
-		for col := 0; col < 8; col++ {
-			piece := parsedBoard[row][col]
-			// Skip empty squares and opponent's pieces
-			if piece == 0 || (isWhiteKing != (piece >= 'A' && piece <= 'Z')) {
-				continue
-			}
+	// fmt.Println("\nChecking if any piece can block or capture:")
+	// for row := 0; row < 8; row++ {
+	// 	for col := 0; col < 8; col++ {
+	// 		piece := parsedBoard[row][col]
+	// 		// Skip empty squares and opponent's pieces
+	// 		if piece == 0 || (isWhiteKing != (piece >= 'A' && piece <= 'Z')) {
+	// 			continue
+	// 		}
 
-			fmt.Printf("\nTesting piece %c at (%d,%d):\n", piece, row, col)
-			// Try every possible destination
-			for toRow := 0; toRow < 8; toRow++ {
-				for toCol := 0; toCol < 8; toCol++ {
-					if handlers.IsValidMove(parsedBoard, piece, row, col, toRow, toCol, nil) {
-						// Create a copy of the board
-						tempBoard := [8][8]rune{}
-						for i := 0; i < 8; i++ {
-							for j := 0; j < 8; j++ {
-								tempBoard[i][j] = parsedBoard[i][j]
-							}
-						}
+	// 		fmt.Printf("\nTesting piece %c at (%d,%d):\n", piece, row, col)
+	// 		// Try every possible destination
+	// 		for toRow := 0; toRow < 8; toRow++ {
+	// 			for toCol := 0; toCol < 8; toCol++ {
+	// 				if handlers.IsValidMove(parsedBoard, piece, row, col, toRow, toCol, nil) {
+	// 					// Create a copy of the board
+	// 					tempBoard := [8][8]rune{}
+	// 					for i := 0; i < 8; i++ {
+	// 						for j := 0; j < 8; j++ {
+	// 							tempBoard[i][j] = parsedBoard[i][j]
+	// 						}
+	// 					}
 
-						// Make the move
-						tempBoard[toRow][toCol] = piece
-						tempBoard[row][col] = 0
+	// 					tempBoard[toRow][toCol] = piece
+	// 					tempBoard[row][col] = 0
 
-						// If this is a king move, check if the new position is safe
-						if (piece == 'K' && isWhiteKing) || (piece == 'k' && !isWhiteKing) {
-							if handlers.IsSquareUnderAttack(tempBoard, toRow, toCol, isWhiteKing) {
-								continue // Skip this move as it puts the king in check
-							}
-						}
+	// 					if (piece == 'K' && isWhiteKing) || (piece == 'k' && !isWhiteKing) {
+	// 						if handlers.IsSquareUnderAttack(tempBoard, toRow, toCol, isWhiteKing) {
+	// 							continue
+	// 						}
+	// 					}
 
-						// Check if this gets us out of check
-						kingCheckRow := kingPos.Row
-						kingCheckCol := kingPos.Col
-						if piece == kingPiece {
-							kingCheckRow = toRow
-							kingCheckCol = toCol
-						}
+	// 					kingCheckRow := kingPos.Row
+	// 					kingCheckCol := kingPos.Col
+	// 					if piece == kingPiece {
+	// 						kingCheckRow = toRow
+	// 						kingCheckCol = toCol
+	// 					}
 
-						if !handlers.IsSquareUnderAttack(tempBoard, kingCheckRow, kingCheckCol, isWhiteKing) {
-							fmt.Printf("Piece can move to (%d,%d) to prevent checkmate\n", toRow, toCol)
-							return false
-						}
-					}
-				}
-			}
-		}
-	}
+	// 					if !handlers.IsSquareUnderAttack(tempBoard, kingCheckRow, kingCheckCol, isWhiteKing) {
+	// 						fmt.Printf("Piece can move to (%d,%d) to prevent checkmate\n", toRow, toCol)
+	// 						return false
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	fmt.Println("\nCHECKMATE CONFIRMED!")
 	return true
