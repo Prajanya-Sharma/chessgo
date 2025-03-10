@@ -4,6 +4,7 @@ import (
 	"chess-engine/handlers"
 	"fmt"
 	"image/color"
+	"math/rand"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+
+	//"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -33,6 +36,8 @@ var whiteTurn = true
 
 var boardContainer *fyne.Container
 var boardCells [8][8]*fyne.Container
+var blackScore = 1290
+var whiteScore = 1290
 
 type KingPosition struct {
 	Row     int
@@ -42,6 +47,82 @@ type KingPosition struct {
 
 var whiteKing = KingPosition{Row: 7, Col: 4, IsCheck: false}
 var blackKing = KingPosition{Row: 0, Col: 4, IsCheck: false}
+
+// func showWinnerNotification(a fyne.App, w fyne.Window, winner string) {
+// 	// Create a dialog to display the winner
+// 	content := container.NewVBox(
+// 		widget.NewLabel("Game Over"),
+// 		widget.NewLabel(winner+" wins!"),
+// 	)
+
+// 	// Create custom dialog with a close button
+// 	winnerDialog := dialog.NewCustom("Chess Game", "Play Again", content, w)
+
+// 	// Show the dialog
+// 	winnerDialog.Show()
+// }
+
+func getBlackPieces() [][2]int {
+	var positions [][2]int
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			piece := parsedBoard[i][j]
+			if piece >= 'a' && piece <= 'z' {
+				positions = append(positions, [2]int{i, j})
+			}
+		}
+	}
+	return positions
+}
+
+func bestMove(board [8][8]rune) {
+
+	blackPieces := getBlackPieces()
+	fmt.Println("black pieces", blackPieces)
+
+	if len(blackPieces) == 0 {
+		return
+	}
+
+	length := len(blackPieces)
+	random := rand.Intn(length)
+	randomPiece := blackPieces[random]
+
+	fmt.Println("random piece selected:", randomPiece)
+
+	pieceType := board[randomPiece[0]][randomPiece[1]]
+
+	var validMoves [][2]int
+
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if randomPiece[0] == i && randomPiece[1] == j {
+				continue
+			}
+			if handlers.IsValidMove(board, pieceType, randomPiece[0], randomPiece[1], i, j, nil) && isPathClear(randomPiece[0], randomPiece[1], i, j) {
+				validMoves = append(validMoves, [2]int{i, j})
+			}
+		}
+	}
+
+	if len(validMoves) == 0 {
+		fmt.Println("No valid moves for selected piece, trying another piece")
+		bestMove(board)
+		return
+	}
+
+	randomMoveNo := rand.Intn(len(validMoves))
+	randomMove := validMoves[randomMoveNo]
+
+	movePiece(randomPiece[0], randomPiece[1], randomMove[0], randomMove[1])
+
+	if blackKing.IsCheck {
+		bestMove(board)
+		blackKing.IsCheck = false
+		return
+	}
+
+}
 
 func handlePieceClick(row, col int) {
 	clickedPiece := parsedBoard[row][col]
@@ -154,8 +235,15 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	//khud ka mat kato
 	if targetPiece != 0 && ((whiteTurn && isTargetWhitePiece) || (!whiteTurn && !isTargetWhitePiece)) {
 		fmt.Println("Can't capture own piece")
-
 		return
+	}
+
+	if targetPiece != 0 {
+		if isWhitePiece {
+			blackScore -= handlers.GetValue(targetPiece)
+		} else {
+			whiteScore -= handlers.GetValue(targetPiece)
+		}
 	}
 	//clear path
 	if !isPathClear(fromRow, fromCol, toRow, toCol) {
@@ -196,13 +284,13 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	} else if piece == 'k' {
 		blackKing.Row, blackKing.Col = toRow, toCol
 	}
-	//after change see if the king is till under check if not then change IsCheck
+
 	if whiteKing.IsCheck && whiteTurn {
-		if !handlers.IsSquareUnderAttack(parsedBoard, toRow, toCol, true) {
+		if !handlers.IsSquareUnderAttack(parsedBoard, whiteKing.Row, whiteKing.Col, true) {
 			whiteKing.IsCheck = false
 		}
 	} else if blackKing.IsCheck && !whiteTurn {
-		if !handlers.IsSquareUnderAttack(parsedBoard, toRow, toCol, false) {
+		if !handlers.IsSquareUnderAttack(parsedBoard, blackKing.Row, blackKing.Col, false) {
 			blackKing.IsCheck = false
 		}
 	}
@@ -215,15 +303,6 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	if promotionPiece != 0 {
 		piece = promotionPiece
 	}
-	// if piece == 'K' || piece == 'k' {
-	// 	if !handlers.IsInCheck(tempBoard, isWhitePiece, toRow, toCol) {
-	// 		if piece == 'K' {
-	// 			whiteKing.IsCheck = false
-	// 		} else {
-	// 			blackKing.IsCheck = false
-	// 		}
-	// 	}
-	// }
 
 	parsedBoard[toRow][toCol] = piece
 	parsedBoard[fromRow][fromCol] = 0
@@ -263,6 +342,11 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 	whiteTurn = !whiteTurn
 	pieceSelected = false
 
+	if !whiteTurn {
+		bestMove(parsedBoard)
+		//whiteTurn = !whiteTurn
+	}
+
 	updateBoardUI(fromRow, fromCol, toRow, toCol)
 
 	for i := 0; i < 8; i++ {
@@ -276,7 +360,9 @@ func movePiece(fromRow, fromCol, toRow, toCol int) {
 		}
 		fmt.Println()
 	}
-	fmt.Println(whiteKing.IsCheck, blackKing.IsCheck)
+	//fmt.Println(whiteKing.IsCheck, blackKing.IsCheck)
+	fmt.Println("White Score:", whiteScore, "Black Score:", blackScore)
+
 }
 
 func isCheckmate(isWhiteKing bool) bool {
@@ -511,6 +597,8 @@ func generateChessBoard() *fyne.Container {
 
 func main() {
 	chessApp := app.New()
+	//a := app.New()
+	//w := a.NewWindow("Chess Game")
 	window := chessApp.NewWindow("Chess Game")
 	window.Resize(fyne.NewSize(600, 600))
 
@@ -522,5 +610,6 @@ func main() {
 	)
 
 	window.SetContent(boardContainer)
+	//showWinnerNotification(a, w, "White")
 	window.ShowAndRun()
 }
